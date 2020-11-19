@@ -379,7 +379,44 @@ summary {
 </div>
 
 
-
+<div id="read-and-tidy-data" class="section level2">
+<h2>Read and tidy data</h2>
+<pre class="r"><code>homicide_df = read.csv(&quot;./data/homicide_data.csv&quot;) %&gt;% 
+  janitor::clean_names() %&gt;% 
+  mutate(
+    city_state = paste(city, state, sep = &quot;, &quot;)
+  )</code></pre>
+<p>Number of homicides per city</p>
+<pre class="r"><code>total_homicides =
+homicide_df %&gt;% 
+  group_by(city_state) %&gt;% 
+  summarize(
+    n_homicides = n_distinct(uid)
+  ) %&gt;% 
+  ungroup()</code></pre>
+<pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
+<p>Number of unsolved homicides per city</p>
+<pre class="r"><code>unsolved_homicides =
+  homicide_df %&gt;% 
+  filter(disposition == &quot;Closed without arrest&quot;) %&gt;%
+  group_by(city_state) %&gt;% 
+  summarize(
+    n_open_homicides = n_distinct(uid)
+  ) %&gt;% 
+  ungroup() </code></pre>
+<pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
+<p>Tibble of total and unsolved homicides</p>
+<pre class="r"><code>open_total_homicides = 
+  full_join(unsolved_homicides, total_homicides)</code></pre>
+<pre><code>## Joining, by = &quot;city_state&quot;</code></pre>
+<pre class="r"><code>open_total_homicides[is.na(open_total_homicides)] &lt;- 0</code></pre>
+<p>Proportion of homicides that are unsolved in Baltimore, MD</p>
+<pre class="r"><code>open_total_homicides %&gt;% 
+  filter(city_state == &quot;Baltimore, MD&quot;) %&gt;% 
+  select(-city_state) %&gt;% 
+  prop.test(open_total_homicides, 2) ##wtf is this not working</code></pre>
+<pre><code>## Error in prop.test(., open_total_homicides, 2): &#39;x&#39; and &#39;n&#39; must have the same length</code></pre>
+</div>
 
 
 

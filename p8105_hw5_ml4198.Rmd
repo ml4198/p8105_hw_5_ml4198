@@ -10,4 +10,59 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(rvest)
+library(lubridate)
 ```
+
+## Read and tidy data
+
+```{r}
+homicide_df = read.csv("./data/homicide_data.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    city_state = paste(city, state, sep = ", ")
+  )
+```
+
+Number of homicides per city
+
+```{r}
+total_homicides =
+homicide_df %>% 
+  group_by(city_state) %>% 
+  summarize(
+    n_homicides = n_distinct(uid)
+  ) %>% 
+  ungroup()
+```
+
+Number of unsolved homicides per city
+
+```{r}
+unsolved_homicides =
+  homicide_df %>% 
+  filter(disposition == "Closed without arrest") %>%
+  group_by(city_state) %>% 
+  summarize(
+    n_open_homicides = n_distinct(uid)
+  ) %>% 
+  ungroup() 
+```
+
+Tibble of total and unsolved homicides
+
+```{r}
+open_total_homicides = 
+  full_join(unsolved_homicides, total_homicides)
+
+open_total_homicides[is.na(open_total_homicides)] <- 0
+```
+
+Proportion of homicides that are unsolved in Baltimore, MD
+
+```{r, error = TRUE}
+open_total_homicides %>% 
+  filter(city_state == "Baltimore, MD") %>% 
+  select(-city_state) %>% 
+  prop.test(open_total_homicides, 2) ##wtf is this not working
+```
+
