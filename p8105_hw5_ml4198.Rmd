@@ -10,7 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(rvest)
-library(lubridate)
 ```
 
 ## Read and tidy data
@@ -23,46 +22,60 @@ homicide_df = read.csv("./data/homicide_data.csv") %>%
   )
 ```
 
-Number of homicides per city
+Homicides per city
 
 ```{r}
 total_homicides =
 homicide_df %>% 
   group_by(city_state) %>% 
   summarize(
-    n_homicides = n_distinct(uid)
-  ) %>% 
-  ungroup()
+    n_homicides = n(),
+  )
 ```
 
 Number of unsolved homicides per city
 
 ```{r}
 unsolved_homicides =
-  homicide_df %>% 
-  filter(disposition == "Closed without arrest") %>%
+  homicide_df %>%
+  filter(disposition == "Closed without arrest" | disposition == "Open/No arrest") %>% 
   group_by(city_state) %>% 
   summarize(
-    n_open_homicides = n_distinct(uid)
-  ) %>% 
-  ungroup() 
+    n_open_homicides = n()
+  )
 ```
 
-Tibble of total and unsolved homicides
+DF of total and unsolved homicides
 
 ```{r}
-open_total_homicides = 
-  full_join(unsolved_homicides, total_homicides)
+open_total_homicides =
+    full_join(unsolved_homicides, total_homicides)
 
 open_total_homicides[is.na(open_total_homicides)] <- 0
 ```
 
 Proportion of homicides that are unsolved in Baltimore, MD
 
-```{r, error = TRUE}
+```{r}
+baltimore_homicides = 
 open_total_homicides %>% 
-  filter(city_state == "Baltimore, MD") %>% 
-  select(-city_state) %>% 
-  prop.test(open_total_homicides, 2) ##wtf is this not working
+  filter(city_state == "Baltimore, MD")
+
+output = prop.test(x = baltimore_homicides$n_open_homicides, n = baltimore_homicides$n_homicides)
+
+output %>% broom::tidy()
 ```
+
+p = 0.646 (95% CI 0.628-0.663)
+
+prop.test(open_total_homicides$n_open_homicides, open_total_homicides$n_homicides)
+
+Proportion of homicides that are unsolved across cities
+
+```{r, error = TRUE}
+##need to figure out how to turn list into vector
+output = map2_df(.x = open_total_homicides$n_open_homicides, .y = open_total_homicides$n_homicides, ~prop.test(x = .x, n = .y), .id = "city_state")
+
+```
+
 

@@ -386,36 +386,47 @@ summary {
   mutate(
     city_state = paste(city, state, sep = &quot;, &quot;)
   )</code></pre>
-<p>Number of homicides per city</p>
+<p>Homicides per city</p>
 <pre class="r"><code>total_homicides =
 homicide_df %&gt;% 
   group_by(city_state) %&gt;% 
   summarize(
-    n_homicides = n_distinct(uid)
-  ) %&gt;% 
-  ungroup()</code></pre>
+    n_homicides = n(),
+  )</code></pre>
 <pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
 <p>Number of unsolved homicides per city</p>
 <pre class="r"><code>unsolved_homicides =
-  homicide_df %&gt;% 
-  filter(disposition == &quot;Closed without arrest&quot;) %&gt;%
+  homicide_df %&gt;%
+  filter(disposition == &quot;Closed without arrest&quot; | disposition == &quot;Open/No arrest&quot;) %&gt;% 
   group_by(city_state) %&gt;% 
   summarize(
-    n_open_homicides = n_distinct(uid)
-  ) %&gt;% 
-  ungroup() </code></pre>
+    n_open_homicides = n()
+  )</code></pre>
 <pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
-<p>Tibble of total and unsolved homicides</p>
-<pre class="r"><code>open_total_homicides = 
-  full_join(unsolved_homicides, total_homicides)</code></pre>
+<p>DF of total and unsolved homicides</p>
+<pre class="r"><code>open_total_homicides =
+    full_join(unsolved_homicides, total_homicides)</code></pre>
 <pre><code>## Joining, by = &quot;city_state&quot;</code></pre>
 <pre class="r"><code>open_total_homicides[is.na(open_total_homicides)] &lt;- 0</code></pre>
 <p>Proportion of homicides that are unsolved in Baltimore, MD</p>
-<pre class="r"><code>open_total_homicides %&gt;% 
-  filter(city_state == &quot;Baltimore, MD&quot;) %&gt;% 
-  select(-city_state) %&gt;% 
-  prop.test(open_total_homicides, 2) ##wtf is this not working</code></pre>
-<pre><code>## Error in prop.test(., open_total_homicides, 2): &#39;x&#39; and &#39;n&#39; must have the same length</code></pre>
+<pre class="r"><code>baltimore_homicides = 
+open_total_homicides %&gt;% 
+  filter(city_state == &quot;Baltimore, MD&quot;)
+
+output = prop.test(x = baltimore_homicides$n_open_homicides, n = baltimore_homicides$n_homicides)
+
+output %&gt;% broom::tidy()</code></pre>
+<pre><code>## # A tibble: 1 x 8
+##   estimate statistic  p.value parameter conf.low conf.high method    alternative
+##      &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;     &lt;int&gt;    &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;     &lt;chr&gt;      
+## 1    0.646      239. 6.46e-54         1    0.628     0.663 1-sample… two.sided</code></pre>
+<p>p = 0.646 (95% CI 0.628-0.663)</p>
+<p>prop.test(open_total_homicides<span class="math inline">\(n_open_homicides, open_total_homicides\)</span>n_homicides)</p>
+<p>Proportion of homicides that are unsolved across cities</p>
+<pre class="r"><code>##need to figure out how to turn list into vector
+output = map2_df(.x = open_total_homicides$n_open_homicides, .y = open_total_homicides$n_homicides, ~prop.test(x = .x, n = .y), .id = &quot;city_state&quot;)</code></pre>
+<pre><code>## Warning in prop.test(x = .x, n = .y): Chi-squared approximation may be incorrect</code></pre>
+<pre><code>## Error: Argument 1 must be a data frame or a named atomic vector.</code></pre>
 </div>
 
 
