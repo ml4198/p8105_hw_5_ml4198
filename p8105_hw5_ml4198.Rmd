@@ -2,17 +2,20 @@
 title: "homework_5"
 author: "Matthew Lawlor"
 date: "11/18/2020"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
-library(rvest)
+library(plotly)
+library(patchwork)
 ```
 
-## Read and tidy data
+# Problem 1
+
+### Read and tidy data
 
 ```{r}
 homicide_df = read.csv("./data/homicide_data.csv") %>% 
@@ -22,7 +25,11 @@ homicide_df = read.csv("./data/homicide_data.csv") %>%
   )
 ```
 
-Homicides per city
+The homicide dataframe has 52179 rows and 13 columns. Information included on murders in 50 US cities from 2007-2017. Murders are classified as open/no arrest, closed by arrest, and closed without arrest.
+
+### Homicides per city
+
+First total homicides per city
 
 ```{r}
 total_homicides =
@@ -33,7 +40,7 @@ homicide_df %>%
   )
 ```
 
-Number of unsolved homicides per city
+Then unsolved homicides per city
 
 ```{r}
 unsolved_homicides =
@@ -45,7 +52,7 @@ unsolved_homicides =
   )
 ```
 
-DF of total and unsolved homicides
+Then join dataframes
 
 ```{r}
 open_total_homicides =
@@ -54,28 +61,85 @@ open_total_homicides =
 open_total_homicides[is.na(open_total_homicides)] <- 0
 ```
 
-Proportion of homicides that are unsolved in Baltimore, MD
+### Proportion of homicides that are unsolved
+
+First in Baltimore, MD
 
 ```{r}
-baltimore_homicides = 
+prop.test(
+open_total_homicides %>%  filter(city_state == "Baltimore, MD") %>%  pull(n_open_homicides),
+open_total_homicides %>%  filter(city_state == "Baltimore, MD") %>%  pull(n_homicides)
+) %>%
+broom::tidy()
+```
+
+Then iterate prop.test across all cities
+
+```{r}
+results = 
 open_total_homicides %>% 
-  filter(city_state == "Baltimore, MD")
-
-output = prop.test(x = baltimore_homicides$n_open_homicides, n = baltimore_homicides$n_homicides)
-
-output %>% broom::tidy()
+  mutate(
+    prop_tests = map2(.x = n_open_homicides, .y = n_homicides, ~prop.test(x = .x, n = .y)),
+    tidy_tests = map(.x = prop_tests, ~broom::tidy(.x))
+  ) %>% 
+  unnest(tidy_tests) %>% 
+  select(city_state, estimate, conf.low, conf.high)
 ```
 
-p = 0.646 (95% CI 0.628-0.663)
+### Plotting
 
-prop.test(open_total_homicides$n_open_homicides, open_total_homicides$n_homicides)
-
-Proportion of homicides that are unsolved across cities
-
-```{r, error = TRUE}
-##need to figure out how to turn list into vector
-output = map2_df(.x = open_total_homicides$n_open_homicides, .y = open_total_homicides$n_homicides, ~prop.test(x = .x, n = .y), .id = "city_state")
-
+```{r}
+results %>% 
+  mutate(city_state = fct_reorder(city_state, estimate)) %>% 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  theme(axis.text.x = element_text(angle = 90))
 ```
+
+## Problem 2
+
+### Read and tidy data
+
+Includes multiple spreadsheets
+
+```{r}
+longitudinal_df = 
+  tibble(
+    path = list.files("prob_2"),
+  ) %>% 
+  mutate(
+    path = str_c("prob_2/", path),
+    data = map(path, read_csv)
+    ) %>%
+  unnest(data) %>%
+  mutate(path = str_replace(path, "prob_2/", " "),
+         path = str_replace(path, ".csv", " ")) %>%
+  separate(path, into = c("group", "id"), sep = "_") %>%
+  pivot_longer(
+    week_1:week_8,
+    names_to = "week", 
+    names_prefix = "week_", 
+    values_to = "observations"
+  ) %>%
+  relocate(id) %>%
+  mutate(
+    group = as.factor(group),
+    week = as.numeric(week)
+  )
+```
+
+Make a spaghetti plot showing observations on each subject over time
+
+```{r}
+longitudinal_df %>% 
+  ggplot(aes(x = week, y = observations, color = id)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(.~group)
+```
+
+Observations over time are relatively stable in control arm and increase over time in experimental arm.
+
 
 
